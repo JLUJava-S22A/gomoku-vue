@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<meta charset="utf-8">
+
+<head>
+    <title>Hello</title>
+    <script src="https://unpkg.com/vue@next"></script>
+    <link rel="stylesheet" type="text/css" href="global.css">
+</head>
+
+<body id="app">
+    <chessboard ref="chessboard" :class="[{display: ready}]">
+    </chessboard>
+    <button @click="revert">REVERT</button>
+</body>
+<script>
+    var app = Vue.createApp({
+        data() {
+            return {
+                socket: null,
+                server: "localhost:8080",
+                connection_state: false,
+                timeout_handler: null,
+                heartbeat_handler: null,
+                // SMAPLE CLIENT_STATUS
+                // client_status: {
+                //     "user": {
+                //         "id": 123,
+                //         "name": "John Smith",
+                //         "token":"123456",
+                //         "score": 123,
+                //     }
+                //     "game": {
+                //         "chessboard": [],
+                //     },
+                //     "peerId": "",
+                //     "status": "offline",
+                //     "sessionId": "",
+                //     "sessionToken": "",
+                //     "connectionId": "",
+                //     "timeToLive": 45000,
+                // },
+                client_status: {
+                    "game": {
+                        "chessboard": [0],
+                    }
+                },
+                flag_need_register: true,
+            };
+        },
+        methods: {
+            revert() {
+                this.$refs.chessboard.revert();
+            },
+            timeout() {
+                console.log("time out!");
+            },
+            send() {
+            },
+            register() {
+
+            }
+        },
+        mounted() {
+            // set basic info
+            var username = localStorage.getItem('username');
+            var password = localStorage.getItem('password');
+            var id = localStorage.getItem('id');
+            if (username && password && id) {
+                this.client_status.user = {
+                    "name": username,
+                    "token": password,
+                    "id": id,
+                };
+            }
+            this.flag_need_register = false;
+            // TODO register
+
+            // connect to server
+            this.socket = new WebSocket('ws://' + this.server + '/gomoku');
+            // this.socket.send();
+            this.socket.onopen = () => {
+                console.log("connected");
+            };
+            this.socket.onmessage = (event) => {
+                var new_status = JSON.parse(event.data);
+                var pull = () => {
+                    this.client_status = new_status;
+                };
+                var push = () => {
+                    this.socket.send(JSON.stringify(this.client_status));
+                };
+                if (new_status.status == "online") { // server online
+                    // try login
+                    if (this.flag_need_register) {
+                        this.client_status.status = "login";
+                    } else {
+                        this.client_status.status = "register";
+                    }
+                    push();
+                } else if (new_status.status == "registered") {
+                    this.client_status = new_status;
+                    this.flag_need_register = false;
+                    localStorage.setItem('username', this.client_status.user.name);
+                    localStorage.setItem('password', this.client_status.user.token);
+                    localStorage.setItem('id', this.client_status.user.id);
+                    this.flag_need_register = false;
+                    this.client_status.status = "login";
+                    push();
+                } else if (new_status.status == "loggedIn") {
+                    this.client_status = new_status;
+                    // start game
+                    this.client_status.game.chessboard = [];
+                    for (var i = 0; i < 225; ++i) {
+                        this.client_status.game.chessboard.push(0);
+                    }
+                    this.client_status.status = "sync";
+                    push();
+                    // trigger keepalive
+                    this.heartbeat_handler = setInterval(() => {
+                        push();
+                    }, 30000);
+                    // trigger timeout
+                    this.timeout_handler = setTimeout(() => {
+                        this.timeout();
+                    }, this.client_status.timeToLive);
+                } else if (new_status.status == "sync") {
+                    this.client_status = new_status;
+                    // update 
+                    pull();
+                    clearTimeout(this.timeout_handler);
+                    this.timeout_handler = setTimeout(() => {
+                        this.timeout();
+                    }, this.client_status.timeToLive);
+
+
+                } else if (new_status.status == "terminated") {
+                    this.client_status = new_status;
+                    // terminate
+                }
+            };
+
+
+        }
+    });
+    app.component(
+        'chessboard',
+        {
+            data() {
+                return {
+                    chessboard_status: this.$parent.client_status.game.chessboard,
+                    nextstep: -1, // -1: black, 1: white
+                    history: [],
+                    ready: false,
+                }
+            },
+            mounted() {
+            },
+            methods: {
+
+                revert() {
+                    this.chessboard_status = this.history.pop();
+                },
+            },
+            template: '<div id="chessboard" class="grid"><moku v-for="(moku, n) in chessboard_status" :moku_status="moku" :index="n"></moku></div>',
+        }
+    );
+    app.component(
+        'moku',
+        {
+            data() {
+                // console.log(this.index);
+                // return {
+                //     moku_status: 0,
+                // }
+                return {}
+            },
+            props: ['moku_status', 'index'],
+            methods: {
+                click() {
+                    if (!this.moku_status) {
+                        this.$parent.history.push(this.$parent.chessboard_status);
+                        var new_status = [...this.$parent.chessboard_status];
+                        new_status[this.index] = this.$parent.nextstep;
+                        this.$parent.nextstep = -this.$parent.nextstep;
+                        this.$parent.chessboard_status = new_status;
+                    }
+                }
+            },
+            template: `<div :class="['moku', {white: moku_status==1}, {black: moku_status==-1}]" @click="click"></div>`
+        }
+    );
+    app.mount('#app');
+</script>
+
+</html>
