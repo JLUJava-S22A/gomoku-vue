@@ -132,7 +132,7 @@
             // TODO register
 
             // connect to server
-            this.socket = new WebSocket('ws://' + this.server + '/gomoku');
+            this.socket = new WebSocket('wss://' + this.server + '/gomoku');
             // this.socket.send();
             this.socket.onopen = () => {
                 console.log("connected");
