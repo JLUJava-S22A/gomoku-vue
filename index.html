@@ -100,7 +100,7 @@
             },
             click(index) {
                 console.log(this.client_status);
-                if (!this.moku_status && (this.client_status.isFirstMove == this.client_status.game.nextMove)) {
+                if (!this.client_status.game.chessboard[index] != -1 && (this.client_status.isFirstMove == this.client_status.game.nextMove)) {
                     this.client_status.game.chessboard[index] = this.client_status.game.nextMove;
                     this.client_status.game.nextMove = 1 - this.client_status.game.nextMove;
                     this.client_status.chakuIndex = index; // checked by server
