@@ -4,7 +4,10 @@
 
 <head>
     <title>Hello</title>
-    <script src="https://unpkg.com/vue@next"></script>
+    <!-- <script src="https://unpkg.com/vue@next"></script> -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.2.37/vue.global.min.js"
+    integrity="sha512-rCO3ZZnxh9j/Y725Iq2Cqr2lc9fi83zVeN3PFTUosktylZsCFjD13PDbKrzKjKO/idjM4KlMQC52AsoGFTAe6A=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- <script src="./vue.js"></script> -->
     <link rel="stylesheet" type="text/css" href="global.css">
 </head>
@@ -16,17 +19,17 @@
     </div>
     <div class="valign-center">
         <div class="halign-center">
-            <div class="chessboard-locator" v-if="ready">
+            <div class="chessboard-locator" v-if="ready && !need_register">
                 <chessboard ref="chessboard" :class="[{display: ready}]"
-                    :chessboard_status="client_status.game.chessboard" :onclick="click">
+                    :chessboard_status="client_status.game.chessboard" :onclick="click" :forbid="not_my_turn">
                 </chessboard>
             </div>
             <!-- <button @click="revert">REVERT</button> -->
-            <div class="login-form-locator" v-else>
+            <div class="login-form-locator" v-if="need_register">
                 <login>
                     <input v-model="username" placeholder="USERNAME"></input><br />
                     <input type="password" v-model="token" placeholder="PASSWORD"></input><br />
-                    <button @click="register">Login</button>
+                    <button @click="register">LOGIN</button>
                 </login>
             </div>
 
@@ -71,9 +74,10 @@
                         "chessboard": [],
                     }
                 },
-                flag_need_register: true,
                 history: [],
+                need_register: true,
                 ready: false,
+                not_my_turn: true,
             };
         },
         methods: {
@@ -96,16 +100,19 @@
                     "name": this.username,
                     "token": this.token,
                 };
+                this.client_status="register";
                 this.send();
             },
             click(index) {
                 console.log(this.client_status);
-                if (this.client_status.game.chessboard[index] != -1 && (this.client_status.isFirstMove == this.client_status.game.nextMove)) {
+                this.not_my_turn = (this.client_status.isFirstMove == this.client_status.game.nextMove);
+                if (this.client_status.game.chessboard[index] == -1 && this.not_my_turn) {
                     this.client_status.game.chessboard[index] = this.client_status.game.nextMove;
                     this.client_status.game.nextMove = 1 - this.client_status.game.nextMove;
                     this.client_status.chakuIndex = index; // checked by server
                     this.sync();
                     this.client_status.chaku = -1;
+                    this.not_my_turn = true;
                 }
 
             },
@@ -128,7 +135,6 @@
                     "id": id,
                 };
             }
-            this.flag_need_register = false;
             // TODO register
 
             // connect to server
@@ -156,6 +162,7 @@
                     }
                     push();
                 } else if (new_status.status == "registered") {
+                    this.need_register=false;
                     this.client_status = Object.assign({}, this.client_status, new_status);
                     this.flag_need_register = false;
                     localStorage.setItem('username', this.client_status.user.name);
@@ -165,6 +172,7 @@
                     this.client_status.status = "login";
                     push();
                 } else if (new_status.status == "loggedIn") {
+                    this.ready = true;
                     this.client_status = Object.assign({}, this.client_status, new_status);
                     // start game
                     this.client_status.game.chessboard = [];
@@ -182,10 +190,12 @@
                     this.timeout_handler = setTimeout(() => {
                         this.timeout();
                     }, this.client_status.timeToLive);
+                    this.not_my_turn = (this.client_status.isFirstMove != this.client_status.game.nextMove);
                 } else if (new_status.status == "sync") {
                     this.client_status = Object.assign({}, this.client_status, new_status);
                     // update 
                     pull();
+                    this.not_my_turn = this.client_status.game.nextMove != this.client_status.isFirstMove;
                     clearTimeout(this.timeout_handler);
                     this.timeout_handler = setTimeout(() => {
                         this.timeout();
@@ -213,14 +223,14 @@
             },
             mounted() {
             },
-            props: ['chessboard_status', 'onclick'],
+            props: ['chessboard_status', 'onclick', 'forbid'],
             methods: {
 
                 revert() {
                     // this.chessboard_status = this.history.pop();
                 },
             },
-            template: '<div id="chessboard" class="grid"><moku v-for="(moku, n) in chessboard_status" :moku_status="moku" :index="n" :onclick="onclick"></moku></div>',
+            template: '<div id="chessboard" class="grid"><moku v-for="(moku, n) in chessboard_status" :moku_status="moku" :index="n" :onclick="onclick" :forbid="forbid"></moku></div>',
         }
     );
     // app.component(
@@ -246,14 +256,14 @@
                 // }
                 return {}
             },
-            props: ['moku_status', 'index', 'onclick'],
+            props: ['moku_status', 'index', 'onclick', 'forbid'],
             methods: {
                 click() {
                     this.onclick(this.index);
                 },
             },
 
-            template: `<div :class="['moku', {white: moku_status==0}, {black: moku_status==1}]" @click="click"></div>`
+            template: `<div :class="['moku', {white: moku_status==0}, {black: moku_status==1}, {forbid: forbid}]" @click="click"></div>`
         }
     );
     app.mount('#app');
