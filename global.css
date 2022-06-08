@@ -137,7 +137,7 @@ login {
 }
 
 .login-form-locator {
-    display: none;
+    /* display: none; */
     grid-template-columns: 1fr 2fr 1fr;
     grid-template-rows: 1fr 2fr 1fr;
     grid-column: 2/3;
