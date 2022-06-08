@@ -16,13 +16,13 @@
     </div>
     <div class="valign-center">
         <div class="halign-center">
-            <div class="chessboard-locator">
+            <div class="chessboard-locator" v-if="ready">
                 <chessboard ref="chessboard" :class="[{display: ready}]"
                     :chessboard_status="client_status.game.chessboard" :onclick="click">
                 </chessboard>
             </div>
             <!-- <button @click="revert">REVERT</button> -->
-            <div class="login-form-locator">
+            <div class="login-form-locator" v-else>
                 <login>
                     <input v-model="username" placeholder="USERNAME"></input><br />
                     <input type="password" v-model="token" placeholder="PASSWORD"></input><br />
@@ -38,7 +38,7 @@
         data() {
             return {
                 socket: null,
-                server: "gomoku-server.merlyn.cc:8443",
+                server: "gomoku-server.merlyn.tech:8443",
                 connection_state: false,
                 timeout_handler: null,
                 heartbeat_handler: null,
