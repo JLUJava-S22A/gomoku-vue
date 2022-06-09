@@ -24,7 +24,6 @@
                     :chessboard_status="client_status.game.chessboard" :onclick="click" :forbid="not_my_turn">
                 </chessboard>
             </div>
-            <!-- <button @click="revert">REVERT</button> -->
             <div class="login-form-locator" v-if="need_register">
                 <login>
                     <input v-model="username" placeholder="USERNAME"></input><br />
@@ -37,6 +36,12 @@
     </div>
 </body>
 <script>
+    function getUrlParam(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+        var r = window.location.search.substr(1).match(reg);
+        if (r != null) return unescape(r[2]);
+        return null;
+    }
     var app = Vue.createApp({
         data() {
             return {
@@ -47,23 +52,26 @@
                 heartbeat_handler: null,
                 username: "",
                 token: "",
-                // SMAPLE CLIENT_STATUS
+                // SAMPLE CLIENT_STATUS
                 // client_status: {
                 //     "user": {
-                //         "id": 123,
-                //         "name": "John Smith",
-                //         "token":"123456",
-                //         "score": 123,
+                //         "id": -1,
+                //         "name": "",
+                //         "token":"",
+                //         "score": -1,
                 //     }
                 //     "game": {
                 //         "chessboard": [],
+                //         "nextMove": 1,
                 //     },
                 //     "peerId": "",
                 //     "status": "offline",
-                //     "sessionId": "",
+                //     "sessionId": -1,
                 //     "sessionToken": "",
-                //     "connectionId": "",
+                //     "connectionId": -1,
                 //     "timeToLive": 45000,
+                //     "isFirstMove": -1,
+                //     "chakuIndex" : -1,
                 // },
                 client_status: {
                     "user": {
@@ -83,12 +91,12 @@
         methods: {
             timeout() {
                 this.socket.close();
-                console.log("time out!");
+                // console.log("time out!"); 
                 alert("No response from server! Please refresh the page!");
                 location.reload();
             },
             send() {
-                console.log(JSON.stringify(this.client_status));
+                // console.log(JSON.stringify(this.client_status)); 
                 this.socket.send(JSON.stringify(this.client_status));
             },
             sync() {
@@ -104,7 +112,7 @@
                 this.send();
             },
             click(index) {
-                console.log(this.client_status);
+                // console.log(this.client_status); 
                 this.not_my_turn = (this.client_status.isFirstMove == this.client_status.game.nextMove);
                 if (this.client_status.game.chessboard[index] == -1 && this.not_my_turn) {
                     this.client_status.game.chessboard[index] = this.client_status.game.nextMove;
@@ -117,7 +125,7 @@
 
             },
             terminate(win) {
-                console.log("You " + (win ? "win" : "lose") + "!");
+                // console.log("You " + (win ? "win" : "lose") + "!"); 
                 alert("You " + (win ? "lose" : "win") + "!");
                 location.reload();
             },
@@ -127,6 +135,19 @@
             // set basic info
             var username = localStorage.getItem('username');
             var password = localStorage.getItem('password');
+            // get server from url
+            var server = getUrlParam('server');
+            var port = getUrlParam('port');
+            if (server != null && port != null) {
+                this.server = server + ":" + port;
+                localStorage.setItem('server', this.server);
+            } else { //get from localStorage
+                server = localStorage.getItem('server');
+                if (server != null) {
+                    this.server = server;
+                }
+            }
+
             var id = localStorage.getItem('id');
             if (username && password && id) {
                 this.client_status.user = {
@@ -135,16 +156,14 @@
                     "id": id,
                 };
             }
-            // TODO register
-
             // connect to server
             this.socket = new WebSocket('wss://' + this.server + '/gomoku');
             // this.socket.send();
             this.socket.onopen = () => {
-                console.log("connected");
+                // console.log("connected"); 
             };
             this.socket.onmessage = (event) => {
-                console.log(event.data);
+                // console.log(event.data); 
                 var new_status = JSON.parse(event.data);
                 var pull = () => {
                     this.client_status = Object.assign({}, this.client_status, new_status);
@@ -217,45 +236,13 @@
     app.component(
         'chessboard',
         {
-            data() {
-                return {
-                }
-            },
-            mounted() {
-            },
             props: ['chessboard_status', 'onclick', 'forbid'],
-            methods: {
-
-                revert() {
-                    // this.chessboard_status = this.history.pop();
-                },
-            },
             template: '<div id="chessboard" class="grid"><moku v-for="(moku, n) in chessboard_status" :moku_status="moku" :index="n" :onclick="onclick" :forbid="forbid"></moku></div>',
         }
     );
-    // app.component(
-    //     'indicator',
-    //     {
-    //         data() {
-    //             return {
-    //             }
-    //         },mounted() {
-
-    //         },props:[],
-    //         methods: {},
-    //         template: ``````,
-    //     }
-    // );
     app.component(
         'moku',
         {
-            data() {
-                // console.log(this.index);
-                // return {
-                //     moku_status: 0,
-                // }
-                return {}
-            },
             props: ['moku_status', 'index', 'onclick', 'forbid'],
             methods: {
                 click() {
