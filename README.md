@@ -19,4 +19,5 @@
 
 ## 协议
 
-本项目采用MIT协议开源。[LICENSE](https://github.com/JLUJava-S22A/gomoku-backend/blob/master/LICENCE)  
+本项目采用MIT协议开源。[LICENSE](https://github.com/JLUJava-S22A/gomoku-backend/blob/master/LICENSE)  
+S
